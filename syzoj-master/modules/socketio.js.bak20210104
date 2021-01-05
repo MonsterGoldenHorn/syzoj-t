@@ -93,10 +93,6 @@ function initializeSocketIO(s) {
                     delete clientDetailProgressList[socket.id];
                 }
             });
-	    socket.on('error', function(data){
-   		 console.log(data + ' - error');
-             	winston.info(`Client ${socket.id} error.`);
-	    });
             socket.on('join', (reqJwt, cb) => {
                 if (debug) winston.info(`Client ${socket.id} connected.`);
                 let req;

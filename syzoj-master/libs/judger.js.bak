@@ -26,10 +26,9 @@ let judgeQueue;
 
 async function connect() {
   const JudgeState = syzoj.model('judge_state');
-  //duplicate()???
+
   const  blockableRedisClient = syzoj.redis.duplicate();
   judgeQueue = {
-	  //bind保证this的指向不变
     redisZADD: util.promisify(syzoj.redis.zadd).bind(syzoj.redis),
     redisBZPOPMAX: util.promisify(blockableRedisClient.bzpopmax).bind(blockableRedisClient),
     async push(data, priority) {
@@ -45,13 +44,8 @@ async function connect() {
       };
     }
   };
-//socketIO.of('judge')命名空间隔离返回的是一个sock
-  const judgeNamespace = syzoj.socketIO.of('judge');
-  judgeNamespace.on('error',function(err){
-        console.log('onerro'+err);
-          winston.error('node sock onerro: ' + err);
-        });
 
+  const judgeNamespace = syzoj.socketIO.of('judge');
   judgeNamespace.on('connect', socket => {
     winston.info(`Judge client ${socket.id} connected.`);
 
@@ -185,7 +179,7 @@ async function connect() {
         judge_state.max_memory = convertedResult.memory;
         judge_state.result = convertedResult.result;
         await judge_state.save();
-       // await judge_state.updateRelatedInfo(false);
+        await judge_state.updateRelatedInfo(false);
       } else if (result.type == interface.ProgressReportType.Compiled) {
         if (!judge_state) return;
         judge_state.compilation = result.progress;
@@ -194,42 +188,41 @@ async function connect() {
         winston.error('Unsupported result type: ' + result.type);
       }
     });
-	socket.on('error',function(err){
-	console.log('onerro'+err);
-          winston.error('node sock onerro: ' + err);
-	});
-	 socket.on('close',function(){
-        console.log('on close');
-          winston.error('node sock onclose: ');
-        });
-
   });
 }
 module.exports.connect = connect;
 
 module.exports.judge = async function (judge_state, problem, priority) {
   let type, param, extraData = null;
-  type = enums.ProblemType.Standard;
-    param = {
+  switch (problem.type) {
+    case 'submit-answer':
+      type = enums.ProblemType.AnswerSubmission;
+      param = null;
+      extraData = await fs.readFile(syzoj.model('file').resolvePath('answer', judge_state.code));
+      break;
+    case 'interaction':
+      type = enums.ProblemType.Interaction;
+      param = {
         language: judge_state.language,
         code: judge_state.code,
         timeLimit: problem.time_limit,
         memoryLimit: problem.memory_limit,
-        fileIOInput: null,
-        fileIOOutput: null
-    };
-console.log("param id:"+problem.id);
-console.log("param:"+problem.time_limit);
-	const content = {
-		taskId: judge_state.task_id,
-		judgeId: judge_state.id,
-		testData: problem.id.toString(),
-		type: type,
-		priority: priority,
-		realPriority: priority - parseInt(judge_state.id) / 10000000,
-		param: param
-	  };
- /* const content = {
+      }
+      break;
+    default:
+      type = enums.ProblemType.Standard;
+      param = {
+        language: judge_state.language,
+        code: judge_state.code,
+        timeLimit: problem.time_limit,
+        memoryLimit: problem.memory_limit,
+        fileIOInput: problem.file_io ? problem.file_io_input_name : null,
+        fileIOOutput: problem.file_io ? problem.file_io_output_name : null
+      };
+      break;
+  }
+
+  const content = {
     taskId: judge_state.task_id,
     judgeId: judge_state.id,
     testData: problem.id.toString(),
@@ -237,7 +230,7 @@ console.log("param:"+problem.time_limit);
     priority: priority,
     realPriority: priority - parseInt(judge_state.id) / 10000000,
     param: param
-  };*/
+  };
 
   judgeQueue.push({
     content: content,

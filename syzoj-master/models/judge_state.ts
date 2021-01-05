@@ -3,9 +3,6 @@ import Model from "./common";
 
 declare var syzoj, ErrorMessage: any;
 
-import User from "./user";
-import Problem from "./problem";
-import Contest from "./contest";
 
 const Judger = syzoj.lib('judger');
 
@@ -102,90 +99,44 @@ export default class JudgeState extends Model {
   @TypeORM.Column({ nullable: true, type: "boolean" })
   is_public: boolean;
 
-  user?: User;
-  problem?: Problem;
+ @TypeORM.Column({ nullable: true, type: "integer" })
+  rs_id: number;
+
+@TypeORM.Column({ nullable: true, type: "varchar" })
+  code_source: string;
 
   async loadRelationships() {
-    if (!this.user) {
-      this.user = await User.findById(this.user_id);
-    }
-    if (!this.problem) {
-      if (this.problem_id) this.problem = await Problem.findById(this.problem_id);
-    }
   }
 
   async saveHook() {
     if (this.score === null) this.score = 0;
   }
 
-  async isAllowedVisitBy(user) {
-    await this.loadRelationships();
-
-    if (user && user.id === this.problem.user_id) return true;
-    else if (this.type === 0) return this.problem.is_public || (user && (await user.hasPrivilege('manage_problem')));
-    else if (this.type === 1) {
-      let contest = await Contest.findById(this.type_info);
-      if (contest.isRunning()) {
-        return user && await contest.isSupervisior(user);
-      } else {
-        return true;
-      }
-    }
-  }
 
   async updateRelatedInfo(newSubmission) {
     if (this.type === 0) {
       await this.loadRelationships();
 
       const promises = [];
-      promises.push(this.user.refreshSubmitInfo());
-      promises.push(this.problem.resetSubmissionCount());
+     // promises.push(this.user.refreshSubmitInfo());
+      //promises.push(this.problem.resetSubmissionCount());
 
       if (!newSubmission) {
-        promises.push(this.problem.updateStatistics(this.user_id));
+        //promises.push(this.problem.updateStatistics(this.user_id));
       }
 
       await Promise.all(promises);
     } else if (this.type === 1) {
-      let contest = await Contest.findById(this.type_info);
-      await contest.newSubmission(this);
+      /*let contest = await Contest.findById(this.type_info);
+      await contest.newSubmission(this);*/
     }
   }
 
   async rejudge() {
-    await syzoj.utils.lock(['JudgeState::rejudge', this.id], async () => {
-      await this.loadRelationships();
-
-      let oldStatus = this.status;
-
-      this.status = Status.UNKNOWN;
-      this.pending = false;
-      this.score = null;
-      if (this.language) {
-        // language is empty if it's a submit-answer problem
-        this.total_time = null;
-        this.max_memory = null;
-      }
-      this.result = {};
-      this.task_id = require('randomstring').generate(10);
-      await this.save();
-
-      await this.updateRelatedInfo(false);
-
-      try {
-        await Judger.judge(this, this.problem, 1);
-        this.pending = true;
-        this.status = Status.WAITING;
-        await this.save();
-      } catch (err) {
-        console.log("Error while connecting to judge frontend: " + err.toString());
-        throw new ErrorMessage("无法开始评测。");
-      }
-    });
   }
 
   async getProblemType() {
-    await this.loadRelationships();
-    return this.problem.type;
+    //await this.loadRelationships();
+   // return this.problem.type;
   }
 }

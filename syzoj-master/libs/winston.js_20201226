@@ -10,8 +10,7 @@ function formatter(args) {
 function configureWinston(verbose) {
     winston.configure({
         transports: [
-            new (winston.transports.Console)({ formatter: formatter }),
-	    new (winston.transports.File)({ filename: '/opt/syzoj/web1/logs/debug.log', level: 'debug' })
+            new (winston.transports.Console)({ formatter: formatter })
         ]
     });
     if (verbose) {
@@ -19,7 +18,6 @@ function configureWinston(verbose) {
     } else {
         winston.level = 'info';
     }
-	winston.level = 'debug';
 }
 
 module.exports.configureWinston = configureWinston;

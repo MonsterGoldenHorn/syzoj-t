@@ -47,11 +47,6 @@ async function connect() {
   };
 //socketIO.of('judge')命名空间隔离返回的是一个sock
   const judgeNamespace = syzoj.socketIO.of('judge');
-  judgeNamespace.on('error',function(err){
-        console.log('onerro'+err);
-          winston.error('node sock onerro: ' + err);
-        });
-
   judgeNamespace.on('connect', socket => {
     winston.info(`Judge client ${socket.id} connected.`);
 
@@ -194,36 +189,26 @@ async function connect() {
         winston.error('Unsupported result type: ' + result.type);
       }
     });
-	socket.on('error',function(err){
-	console.log('onerro'+err);
-          winston.error('node sock onerro: ' + err);
-	});
-	 socket.on('close',function(){
-        console.log('on close');
-          winston.error('node sock onclose: ');
-        });
-
   });
 }
 module.exports.connect = connect;
 
-module.exports.judge = async function (judge_state, problem, priority) {
+module.exports.judge = async function (judge_state, problemid, priority) {
   let type, param, extraData = null;
   type = enums.ProblemType.Standard;
     param = {
         language: judge_state.language,
         code: judge_state.code,
-        timeLimit: problem.time_limit,
-        memoryLimit: problem.memory_limit,
+        timeLimit: 30000,
+        memoryLimit: 1024,
         fileIOInput: null,
         fileIOOutput: null
     };
-console.log("param id:"+problem.id);
-console.log("param:"+problem.time_limit);
+
 	const content = {
 		taskId: judge_state.task_id,
 		judgeId: judge_state.id,
-		testData: problem.id.toString(),
+		testData: problemid,
 		type: type,
 		priority: priority,
 		realPriority: priority - parseInt(judge_state.id) / 10000000,
